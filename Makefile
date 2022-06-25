@@ -190,7 +190,6 @@ OBJDIR = _obj$(POSTFIX)
 # list of source files to compile
 SOURCE = \
 	$(SRCDIR)/plugin.c \
-	$(SRCDIR)/core_interface.c \
 	$(SRCDIR)/controller.c
 
 
@@ -204,6 +203,7 @@ SOURCE += \
 	$(SRCDIR)/osal_files_unix.c
 endif
 
+# $(SRCDIR)/core_interface.c \
 # generate a list of object files build, make a temporary directory for them
 OBJECTS := $(patsubst %.c, $(OBJDIR)/%.o, $(filter %.c, $(SOURCE)))
 OBJDIRS = $(dir $(OBJECTS))

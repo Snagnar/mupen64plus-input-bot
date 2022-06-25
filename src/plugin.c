@@ -10,13 +10,16 @@
 
 #include "plugin.h"
 #include "version.h"
-#include "core_interface.h"
+#include "m64p_types.h"
+// #include "core_interface.h"
 #include "controller.h"
 
 #include "osal_dynamiclib.h"
 
 #define DEFAULT_HOST "localhost"
 #define DEFAULT_PORT 8082
+
+static const char *l_CoreLibPath = NULL;
 
 /* definitions of pointers to Core config functions */
 ptr_ConfigOpenSection ConfigOpenSection = NULL;
@@ -33,6 +36,8 @@ ptr_ConfigGetParamInt ConfigGetParamInt = NULL;
 ptr_ConfigGetParamFloat ConfigGetParamFloat = NULL;
 ptr_ConfigGetParamBool ConfigGetParamBool = NULL;
 ptr_ConfigGetParamString ConfigGetParamString = NULL;
+
+ptr_CoreDoCommand CoreDoCommand = NULL;
 
 ptr_ConfigGetSharedDataFilepath ConfigGetSharedDataFilepath = NULL;
 ptr_ConfigGetUserConfigPath ConfigGetUserConfigPath = NULL;
@@ -92,6 +97,8 @@ EXPORT m64p_error CALL PluginStartup(m64p_dynlib_handle CoreLibHandle, void *Con
   ConfigGetParamFloat = (ptr_ConfigGetParamFloat)osal_dynlib_getproc(CoreLibHandle, "ConfigGetParamFloat");
   ConfigGetParamBool = (ptr_ConfigGetParamBool)osal_dynlib_getproc(CoreLibHandle, "ConfigGetParamBool");
   ConfigGetParamString = (ptr_ConfigGetParamString)osal_dynlib_getproc(CoreLibHandle, "ConfigGetParamString");
+
+  CoreDoCommand = (ptr_CoreDoCommand)osal_dynlib_getproc(CoreLibHandle, "CoreDoCommand");
 
   ConfigGetSharedDataFilepath = (ptr_ConfigGetSharedDataFilepath)osal_dynlib_getproc(CoreLibHandle, "ConfigGetSharedDataFilepath");
   ConfigGetUserConfigPath = (ptr_ConfigGetUserConfigPath)osal_dynlib_getproc(CoreLibHandle, "ConfigGetUserConfigPath");
@@ -252,8 +259,9 @@ EXPORT void CALL InitiateControllers(CONTROL_INFO ControlInfo)
     }
   }
 
-  (*CoreDoCommand)(M64CMD_CORE_STATE_SET, M64CORE_SPEED_LIMITER, 0);
-  (*CoreDoCommand)(M64CMD_CORE_STATE_SET, M64CORE_SPEED_FACTOR, 750);
+  // if (AttachCoreLib(l_CoreLibPath) != M64ERR_SUCCESS)
+  //   return 2;
+  // main_speedup(100);
 
   DebugMessage(M64MSG_INFO, "%s version %i.%i.%i initialized.", PLUGIN_NAME, VERSION_PRINTF_SPLIT(PLUGIN_VERSION));
 }
@@ -323,9 +331,24 @@ EXPORT void CALL RomClosed(void)
             the controller state.
   output:   none
 *******************************************************************/
+static int done = 0;
+
 EXPORT void CALL GetKeys(int Control, BUTTONS *Keys)
 {
-  clients[Control] = read_controller(Control, sockfd[Control], clients[Control]);
+  printf("getting keys for %i\n", Control);
+  if (!done)
+  {
+    printf("before here %d, %d, %d\n", M64CMD_CORE_STATE_SET, M64CORE_SPEED_LIMITER, 0);
+    printf("before here func %d\n", CoreDoCommand);
+    // (*CoreDoCommand)(M64CMD_STOP, 0, NULL);
+    // int result = (*CoreDoCommand)(M64CMD_CORE_STATE_SET, M64CORE_SPEED_LIMITER, 1);
+    printf("gotten result: %d\n", result);
+    // int secResult = (*CoreDoCommand)(M64CMD_CORE_STATE_SET, M64CORE_SPEED_FACTOR, 20);
+    // printf("now here func %d\n", secResult);
+    done = 1;
+  }
+  if (Control == 0)
+    clients[Control] = read_controller(Control, sockfd[Control], clients[Control]);
 
 #ifdef _DEBUG
   DebugMessage(M64MSG_VERBOSE, "Controller #%d value: 0x%8.8X", 0, *(int *)&controller[Control].buttons);

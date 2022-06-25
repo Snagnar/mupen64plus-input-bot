@@ -164,6 +164,7 @@ static clock_t start, end;
 int read_controller(int Control, int socket, int client_socket)
 {
     // time(&start);
+    // printf("at start, client: %i\n", client_socket);
     start = clock();
     struct sockaddr_in client;
     if (--frames_to_skip > 0)
@@ -176,10 +177,9 @@ int read_controller(int Control, int socket, int client_socket)
         // DebugMessage(M64MSG_ERROR, "ERROR storing complete response from socket");
         return -1;
     }
-    // printf("accepted!");
     char msg[48];
     int rec_len = receive_basic(client_socket, msg);
-    if (send(client_socket, "", 1, 0) < 0)
+    if (send(client_socket, "a", 1, 0) < 0)
     {
         return -1;
     }
