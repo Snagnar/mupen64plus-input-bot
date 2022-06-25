@@ -189,9 +189,20 @@ OBJDIR = _obj$(POSTFIX)
 
 # list of source files to compile
 SOURCE = \
-	$(SRCDIR)/osal_dynamiclib.c \
 	$(SRCDIR)/plugin.c \
+	$(SRCDIR)/core_interface.c \
 	$(SRCDIR)/controller.c
+
+
+ifeq ($(OS), MINGW)
+SOURCE += \
+	$(SRCDIR)/osal_dynamiclib_win32.c \
+	$(SRCDIR)/osal_files_win32.c
+else
+SOURCE += \
+	$(SRCDIR)/osal_dynamiclib_unix.c \
+	$(SRCDIR)/osal_files_unix.c
+endif
 
 # generate a list of object files build, make a temporary directory for them
 OBJECTS := $(patsubst %.c, $(OBJDIR)/%.o, $(filter %.c, $(SOURCE)))
