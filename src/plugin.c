@@ -19,8 +19,6 @@
 #define DEFAULT_HOST "localhost"
 #define DEFAULT_PORT 8082
 
-static const char *l_CoreLibPath = NULL;
-
 /* definitions of pointers to Core config functions */
 ptr_ConfigOpenSection ConfigOpenSection = NULL;
 ptr_ConfigDeleteSection ConfigDeleteSection = NULL;
@@ -250,18 +248,14 @@ EXPORT void CALL InitiateControllers(CONTROL_INFO ControlInfo)
     if (sockfd[i] == -1)
     {
       DebugMessage(M64MSG_ERROR, "Couldn't create socket server!");
-      while (sockfd[i] == -1)
-      {
-        sleep(1);
-        sockfd[i] = socket_create(controller[i].host, controller[i].port);
-      }
-      // return;
+      // while (sockfd[i] == -1)
+      // {
+      //   sleep(1);
+      //   sockfd[i] = socket_create(controller[i].host, controller[i].port);
+      // }
+      return;
     }
   }
-
-  // if (AttachCoreLib(l_CoreLibPath) != M64ERR_SUCCESS)
-  //   return 2;
-  // main_speedup(100);
 
   DebugMessage(M64MSG_INFO, "%s version %i.%i.%i initialized.", PLUGIN_NAME, VERSION_PRINTF_SPLIT(PLUGIN_VERSION));
 }
@@ -331,22 +325,8 @@ EXPORT void CALL RomClosed(void)
             the controller state.
   output:   none
 *******************************************************************/
-static int done = 0;
-
 EXPORT void CALL GetKeys(int Control, BUTTONS *Keys)
 {
-  printf("getting keys for %i\n", Control);
-  if (!done)
-  {
-    printf("before here %d, %d, %d\n", M64CMD_CORE_STATE_SET, M64CORE_SPEED_LIMITER, 0);
-    printf("before here func %d\n", CoreDoCommand);
-    // (*CoreDoCommand)(M64CMD_STOP, 0, NULL);
-    // int result = (*CoreDoCommand)(M64CMD_CORE_STATE_SET, M64CORE_SPEED_LIMITER, 1);
-    printf("gotten result: %d\n", result);
-    // int secResult = (*CoreDoCommand)(M64CMD_CORE_STATE_SET, M64CORE_SPEED_FACTOR, 20);
-    // printf("now here func %d\n", secResult);
-    done = 1;
-  }
   if (Control == 0)
     clients[Control] = read_controller(Control, sockfd[Control], clients[Control]);
 
