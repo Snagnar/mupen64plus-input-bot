@@ -247,12 +247,12 @@ EXPORT void CALL InitiateControllers(CONTROL_INFO ControlInfo)
     clients[i] = -1;
     if (sockfd[i] == -1)
     {
-      DebugMessage(M64MSG_ERROR, "Couldn't create socket server!");
-      // while (sockfd[i] == -1)
-      // {
-      //   sleep(1);
-      //   sockfd[i] = socket_create(controller[i].host, controller[i].port);
-      // }
+      DebugMessage(M64MSG_ERROR, "Couldn't create socket server!, retrying....");
+      while (sockfd[i] == -1)
+      {
+        sleep(1);
+        sockfd[i] = socket_create(controller[i].host, controller[i].port);
+      }
       return;
     }
   }
