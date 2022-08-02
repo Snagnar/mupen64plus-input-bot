@@ -46,4 +46,6 @@ extern ptr_ConfigGetUserCachePath ConfigGetUserCachePath;
 
 extern ptr_CoreDoCommand CoreDoCommand;
 
+extern GFX_INFO gfx;
+
 #endif // __PLUGIN_H__

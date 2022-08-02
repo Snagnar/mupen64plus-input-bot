@@ -42,6 +42,8 @@ ptr_ConfigGetUserConfigPath ConfigGetUserConfigPath = NULL;
 ptr_ConfigGetUserDataPath ConfigGetUserDataPath = NULL;
 ptr_ConfigGetUserCachePath ConfigGetUserCachePath = NULL;
 
+GFX_INFO gfx;
+
 /* global data definitions */
 SController controller[NUM_CONTROLLERS];
 
@@ -257,6 +259,13 @@ EXPORT void CALL InitiateControllers(CONTROL_INFO ControlInfo)
     }
   }
 
+  DebugMessage(M64MSG_INFO, "now calling coredocommand");
+  int screen_size;
+  CoreDoCommand(M64CMD_CORE_STATE_QUERY, M64CORE_VIDEO_SIZE, &screen_size);
+  int width = (screen_size >> 16) & 0xffff;
+  int height = screen_size & 0xffff;
+
+  DebugMessage(M64MSG_INFO, "screen size %i x %i.", width, height);
   DebugMessage(M64MSG_INFO, "%s version %i.%i.%i initialized.", PLUGIN_NAME, VERSION_PRINTF_SPLIT(PLUGIN_VERSION));
 }
 

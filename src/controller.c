@@ -17,6 +17,19 @@
 #include "plugin.h"
 #include "controller.h"
 
+int screen_width = -1, screen_height = -1;
+
+void get_screen_resolution() {
+    if (screen_width != -1 && screen_height != -1)
+        return;
+    int screen_size;
+    CoreDoCommand(M64CMD_CORE_STATE_QUERY, M64CORE_VIDEO_SIZE, &screen_size);
+    screen_width = (screen_size >> 16) & 0xffff;
+    screen_height = screen_size & 0xffff;
+
+    DebugMessage(M64MSG_INFO, "screen size %i x %i.", screen_width, screen_height);
+}
+
 int socket_create(char *host, int portno)
 {
     struct sockaddr_in serv_addr;
@@ -70,14 +83,14 @@ void clear_controller(int Control)
 
 #define CHUNK_SIZE 48
 
-int receive_basic(int s, char *a)
+int receive_basic(int socket, char *msg)
 {
     int size_recv, total_size = 0;
     char chunk[CHUNK_SIZE];
     while (1)
     {
         memset(chunk, 0, CHUNK_SIZE); // clear the variable
-        if ((size_recv = recv(s, chunk, CHUNK_SIZE, 0)) < 0)
+        if ((size_recv = recv(socket, chunk, CHUNK_SIZE, 0)) < 0)
         {
             break;
         }
@@ -89,7 +102,7 @@ int receive_basic(int s, char *a)
             char received_all = 0;
             for (int i = 0; i < CHUNK_SIZE && chunk[i] != 0; i++)
             {
-                a[i] = chunk[i];
+                msg[i] = chunk[i];
                 if (chunk[i] == '#')
                 {
                     received_all = 1;
@@ -100,7 +113,7 @@ int receive_basic(int s, char *a)
                 break;
         }
     }
-    a[total_size] = '\0';
+    msg[total_size] = '\0';
 
     return total_size;
 }
@@ -125,10 +138,25 @@ int *parse_message(char *msg, int rec_len)
     return values;
 }
 
+int get_emulator_image(unsigned char** image) {
+    int image_size = screen_width * screen_height * 3;
+    // int image_size = 4;
+    // char * stop = "!#~~Stop it]";
+    int buffer_size = image_size;
+
+    unsigned char * pixels = (unsigned char *) malloc(buffer_size);
+    CoreDoCommand(M64CMD_READ_SCREEN, 0, pixels);
+    *image = pixels;
+    // strcpy(image + image_size, stop);
+    // DebugMessage(M64MSG_INFO, "image in between: %i\n", image);
+    return buffer_size;
+}
+
 static int frames_to_skip = 0;
 
 int read_controller(int Control, int socket, int client_socket)
 {
+
     struct sockaddr_in client;
     if (--frames_to_skip > 0)
     {
@@ -139,12 +167,25 @@ int read_controller(int Control, int socket, int client_socket)
     {
         return -1;
     }
+    get_screen_resolution();
     char msg[48];
     int rec_len = receive_basic(client_socket, msg);
-    if (send(client_socket, "a", 1, 0) < 0)
+    unsigned char * image;
+    // DebugMessage(M64MSG_INFO, "getting image.");
+    // DebugMessage(M64MSG_INFO, "image before: %i", image);
+    int buffer_size = get_emulator_image(&image);
+    // DebugMessage(M64MSG_INFO, "image after: %i", image);
+    // for (int x = 0; x<5; x++) {
+        // DebugMessage(M64MSG_INFO, "%i\n", image[x]);
+    // }
+    // DebugMessage(M64MSG_INFO, "now sending stuff of size %i.", buffer_size);
+
+    // if (send(client_socket, image, 1, 0) < 0)
+    if (send(client_socket, image, buffer_size, 0) < 0)
     {
         return -1;
     }
+    // DebugMessage(M64MSG_INFO, "done sending stuff.");
     int *values;
     values = parse_message(msg, rec_len);
 
