@@ -145,7 +145,21 @@ int get_emulator_image(unsigned char** image) {
     int buffer_size = image_size;
 
     unsigned char * pixels = (unsigned char *) malloc(buffer_size);
-    CoreDoCommand(M64CMD_READ_SCREEN, 0, pixels);
+    int count = 0;
+    for (int x = 0; x<buffer_size; x++) {
+        if (pixels[x] == 0) {
+            count++;
+        }
+    }
+    DebugMessage(M64MSG_INFO, "image zero: %i", count);
+    CoreDoCommand(M64CMD_READ_SCREEN, 10, pixels);
+    count = 0;
+    for (int x = 0; x<buffer_size; x++) {
+        if (pixels[x] == 0) {
+            count++;
+        }
+    }
+    DebugMessage(M64MSG_INFO, "image zero afterwards: %i", count);
     *image = pixels;
     // strcpy(image + image_size, stop);
     // DebugMessage(M64MSG_INFO, "image in between: %i\n", image);
@@ -174,13 +188,21 @@ int read_controller(int Control, int socket, int client_socket)
     // DebugMessage(M64MSG_INFO, "getting image.");
     // DebugMessage(M64MSG_INFO, "image before: %i", image);
     int buffer_size = get_emulator_image(&image);
-    // DebugMessage(M64MSG_INFO, "image after: %i", image);
+    int count = 0;
+    for (int x = 0; x<buffer_size; x++) {
+        if (image[x] == 0) {
+            count++;
+        }
+    }
+    DebugMessage(M64MSG_INFO, "image zero when send: %i", count);
+
     // for (int x = 0; x<5; x++) {
         // DebugMessage(M64MSG_INFO, "%i\n", image[x]);
     // }
     // DebugMessage(M64MSG_INFO, "now sending stuff of size %i.", buffer_size);
 
     // if (send(client_socket, image, 1, 0) < 0)
+
     if (send(client_socket, image, buffer_size, 0) < 0)
     {
         return -1;
