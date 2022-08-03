@@ -20,8 +20,8 @@
 int screen_width = -1, screen_height = -1;
 
 void get_screen_resolution() {
-    if (screen_width != -1 && screen_height != -1)
-        return;
+    // if (screen_width != -1 && screen_height != -1)
+    //     return;
     int screen_size;
     CoreDoCommand(M64CMD_CORE_STATE_QUERY, M64CORE_VIDEO_SIZE, &screen_size);
     screen_width = (screen_size >> 16) & 0xffff;
@@ -152,7 +152,7 @@ int get_emulator_image(unsigned char** image) {
         }
     }
     DebugMessage(M64MSG_INFO, "image zero: %i", count);
-    CoreDoCommand(M64CMD_READ_SCREEN, 10, pixels);
+    CoreDoCommand(M64CMD_READ_SCREEN, 1, pixels);
     count = 0;
     for (int x = 0; x<buffer_size; x++) {
         if (pixels[x] == 0) {
