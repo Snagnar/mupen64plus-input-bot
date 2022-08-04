@@ -108,6 +108,7 @@ int receive_basic(int socket, char *msg)
 {
     int size_recv, total_size = 0;
     char chunk[CHUNK_SIZE];
+    int end_count = 0;
     while (1)
     {
         memset(chunk, 0, CHUNK_SIZE); // clear the variable
@@ -119,15 +120,21 @@ int receive_basic(int socket, char *msg)
         {
             if (chunk[0] == 0)
                 break;
-            total_size += size_recv;
+            // total_size += size_recv;
             char received_all = 0;
             for (int i = 0; i < CHUNK_SIZE && chunk[i] != 0; i++)
             {
                 msg[i] = chunk[i];
+                total_size ++;
                 if (chunk[i] == '#')
                 {
-                    received_all = 1;
-                    break;
+                    end_count ++;
+                    if (end_count >= 2) {
+                        DebugMessage(M64MSG_INFO, "breaking cause found.");
+                        received_all = 1;
+                        break;
+
+                    }
                 }
             }
             if (received_all == 1)
@@ -139,12 +146,23 @@ int receive_basic(int socket, char *msg)
     return total_size;
 }
 
+int parse_error = 0;
+
 int *parse_message(char *msg, int rec_len)
 {
     static int values[17];
     char number[16];
     int ni = 0, vi = 0;
-    for (int x = 0; x < rec_len; x++)
+    int fst = 0;
+    for (; fst < rec_len; fst++)
+        if (msg[fst] == '#')
+            break;
+    // int scnd = fst + 1;
+    // for (; scnd < rec_len; scnd++)
+    //     if (msg[scnd] == '#')
+    //         break;
+    
+    for (int x = fst + 2; x < rec_len; x++)
     {
         if (msg[x] == '|' || msg[x] == '#')
         {
@@ -156,6 +174,8 @@ int *parse_message(char *msg, int rec_len)
         else
             number[ni++] = msg[x];
     }
+    if (vi != 17) 
+        parse_error = 1;        
     return values;
 }
 
@@ -238,58 +258,91 @@ int read_controller(int Control, int socket, int client_socket)
     socklen_t namelen = sizeof(client);
     if (client_socket < 0 && (client_socket = accept(socket, (struct sockaddr *)&client, &namelen)) == -1)
     {
+        DebugMessage(M64MSG_ERROR, "cannot accept client.");
         return -1;
     }
     get_screen_resolution();
     char msg[48];
     int rec_len = receive_basic(client_socket, msg);
-    DebugMessage(M64MSG_INFO, "received size %i.", rec_len);
-
-    unsigned char * image;
-    // DebugMessage(M64MSG_INFO, "getting image.");
-    // DebugMessage(M64MSG_INFO, "image before: %i", image);
-    int buffer_size = get_emulator_image(&image);
-    // int count = 0;
-    // for (int x = 0; x<buffer_size; x++) {
-    //     if (image[x] == 0) {
-    //         count++;
-    //     }
-    // }
-    // DebugMessage(M64MSG_INFO, "image zero when send: %i", count);
-
-    // for (int x = 0; x<5; x++) {
-        // DebugMessage(M64MSG_INFO, "%i\n", image[x]);
-    // // }
-    DebugMessage(M64MSG_INFO, "now sending stuff of size %i.", buffer_size);
-
-    // if (send(client_socket, image, 1, 0) < 0)
-
-    if (send(client_socket, image, buffer_size, 0) < 0)
-    {
-        return -1;
+    int fst = 0, lst = rec_len-1;
+    DebugMessage(M64MSG_INFO, "1 fst %i, lst: %i.", fst, lst);
+    for (;fst < rec_len; fst++) {
+        if (msg[fst] == '#') break;
     }
-    free(image);
-    // DebugMessage(M64MSG_INFO, "done sending stuff.");
-    int *values;
-    values = parse_message(msg, rec_len);
+    DebugMessage(M64MSG_INFO, "2 fst %i, lst: %i.", fst, lst);
+    for (;lst >= 0; lst--) {
+        if (msg[lst] == '#') break;
+    }
+    DebugMessage(M64MSG_INFO, "3 fst %i, lst: %i.", fst, lst);
+    if (rec_len > 10 && fst < lst) {
+        DebugMessage(M64MSG_INFO, "received size %i, msg: %s.", rec_len, msg);
 
-    controller[Control].buttons.X_AXIS = values[0];
-    controller[Control].buttons.Y_AXIS = values[1];
-    controller[Control].buttons.A_BUTTON = values[2];
-    controller[Control].buttons.B_BUTTON = values[3];
-    controller[Control].buttons.R_TRIG = values[4];
-    controller[Control].buttons.L_TRIG = values[5];
-    controller[Control].buttons.Z_TRIG = values[6];
-    controller[Control].buttons.R_CBUTTON = values[7];
-    controller[Control].buttons.L_CBUTTON = values[8];
-    controller[Control].buttons.D_CBUTTON = values[9];
-    controller[Control].buttons.U_CBUTTON = values[10];
-    controller[Control].buttons.R_DPAD = values[11];
-    controller[Control].buttons.L_DPAD = values[12];
-    controller[Control].buttons.D_DPAD = values[13];
-    controller[Control].buttons.U_DPAD = values[14];
-    controller[Control].buttons.START_BUTTON = values[15];
-    frames_to_skip = values[16];
+        unsigned char * image;
+        // DebugMessage(M64MSG_INFO, "getting image.");
+        // DebugMessage(M64MSG_INFO, "image before: %i", image);
+        int buffer_size = get_emulator_image(&image);
+        // int count = 0;
+        // for (int x = 0; x<buffer_size; x++) {
+        //     if (image[x] == 0) {
+        //         count++;
+        //     }
+        // }
+        // DebugMessage(M64MSG_INFO, "image zero when send: %i", count);
+
+        // for (int x = 0; x<5; x++) {
+            // DebugMessage(M64MSG_INFO, "%i\n", image[x]);
+        // // }
+        DebugMessage(M64MSG_INFO, "now sending stuff of size %i.", buffer_size);
+
+        // if (send(client_socket, image, 1, 0) < 0)
+
+        // free(image);
+        DebugMessage(M64MSG_INFO, "done sending stuff.");
+        int *values;
+        parse_error = 0;
+        values = parse_message(msg, rec_len);
+        if (parse_error) {
+            DebugMessage(M64MSG_INFO, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa did not match received size %i, msg: %s.", rec_len, msg);
+            if (send(client_socket, "none", 4, 0) < 0)
+            {
+                DebugMessage(M64MSG_ERROR, "cannot send to client parse.");
+                return -1;
+            }
+        }
+        else {
+            controller[Control].buttons.X_AXIS = values[0];
+            controller[Control].buttons.Y_AXIS = values[1];
+            controller[Control].buttons.A_BUTTON = values[2];
+            controller[Control].buttons.B_BUTTON = values[3];
+            controller[Control].buttons.R_TRIG = values[4];
+            controller[Control].buttons.L_TRIG = values[5];
+            controller[Control].buttons.Z_TRIG = values[6];
+            controller[Control].buttons.R_CBUTTON = values[7];
+            controller[Control].buttons.L_CBUTTON = values[8];
+            controller[Control].buttons.D_CBUTTON = values[9];
+            controller[Control].buttons.U_CBUTTON = values[10];
+            controller[Control].buttons.R_DPAD = values[11];
+            controller[Control].buttons.L_DPAD = values[12];
+            controller[Control].buttons.D_DPAD = values[13];
+            controller[Control].buttons.U_DPAD = values[14];
+            controller[Control].buttons.START_BUTTON = values[15];
+            frames_to_skip = values[16];
+
+            if (send(client_socket, image, buffer_size, 0) < 0)
+            {
+                return -1;
+            }
+        }
+
+    }
+    else {
+        DebugMessage(M64MSG_INFO, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ did not match received size %i, msg: %s.", rec_len, msg);
+        if (send(client_socket, "none", 4, 0) < 0)
+        {
+                DebugMessage(M64MSG_ERROR, "cannot send to client other.");
+            return -1;
+        }
+    }
 
     return client_socket;
 }
