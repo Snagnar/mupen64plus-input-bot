@@ -184,7 +184,7 @@ int get_emulator_image(unsigned char** image) {
     struct stat st;
     stat(file_path, &st);
     int file_size = st.st_size;
-    DebugMessage(M64MSG_INFO, "file read, bits in file: %i.", file_size);
+    // DebugMessage(M64MSG_INFO, "file read, bits in file: %i.", file_size);
     unsigned char * buf = (unsigned char *) malloc(file_size);
     // DebugMessage(M64MSG_INFO, "file opened.");
     if(file_size != fread(buf, 1, file_size, fb_file)) {
@@ -196,10 +196,10 @@ int get_emulator_image(unsigned char** image) {
     int bits_per_rgb = (buf[68] << 24) | (buf[69] << 16) | (buf[70] << 8) | buf[71];
     int ncolors = (buf[76] << 24) | (buf[77] << 16) | (buf[78] << 8) | buf[79];
        /* Close the file */
-    DebugMessage(M64MSG_INFO, "file read, bits per pixel: %i per rgb: %i.", bits_per_pixel, bits_per_rgb);
+    // DebugMessage(M64MSG_INFO, "file read, bits per pixel: %i per rgb: %i.", bits_per_pixel, bits_per_rgb);
     int pixel_offset = header_size + ncolors * 12;
 
-    DebugMessage(M64MSG_INFO, "offset: %i, header size: %i, nc: %i.", pixel_offset, header_size, ncolors * 12);
+    // DebugMessage(M64MSG_INFO, "offset: %i, header size: %i, nc: %i.", pixel_offset, header_size, ncolors * 12);
     memcpy(pixels, buf + pixel_offset, buffer_size);
     // int count = 0;
     int pc = 0;
@@ -243,6 +243,8 @@ int read_controller(int Control, int socket, int client_socket)
     get_screen_resolution();
     char msg[48];
     int rec_len = receive_basic(client_socket, msg);
+    DebugMessage(M64MSG_INFO, "received size %i.", rec_len);
+
     unsigned char * image;
     // DebugMessage(M64MSG_INFO, "getting image.");
     // DebugMessage(M64MSG_INFO, "image before: %i", image);
