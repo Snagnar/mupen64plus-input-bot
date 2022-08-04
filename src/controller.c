@@ -14,20 +14,41 @@
 #include <fcntl.h>
 #include <arpa/inet.h>
 
+#include <sys/stat.h>
+#include <X11/XWDFile.h>
+
 #include "plugin.h"
 #include "controller.h"
 
 int screen_width = -1, screen_height = -1;
+char * file_path = NULL;
 
 void get_screen_resolution() {
-    // if (screen_width != -1 && screen_height != -1)
-    //     return;
+    if (screen_width != -1 && screen_height != -1)
+        return;
     int screen_size;
     CoreDoCommand(M64CMD_CORE_STATE_QUERY, M64CORE_VIDEO_SIZE, &screen_size);
     screen_width = (screen_size >> 16) & 0xffff;
     screen_height = screen_size & 0xffff;
 
     DebugMessage(M64MSG_INFO, "screen size %i x %i.", screen_width, screen_height);
+}
+
+void get_fb_file_path() {
+    if(file_path != NULL)
+        return;
+    
+    DebugMessage(M64MSG_INFO, "getting fb path...");
+    file_path = getenv("XVFB_FB_PATH");
+    if (!file_path) {
+        DebugMessage(M64MSG_ERROR, "file path could not be loaded from XVFB_FB_PATH.");
+        DebugMessage(M64MSG_INFO, "file path could not be loaded from XVFB_FB_PATH.");
+        file_path = NULL;
+    }
+    else {
+        DebugMessage(M64MSG_INFO, "fb path: %s.", file_path);
+
+    }
 }
 
 int socket_create(char *host, int portno)
@@ -145,24 +166,62 @@ int get_emulator_image(unsigned char** image) {
     int buffer_size = image_size;
 
     unsigned char * pixels = (unsigned char *) malloc(buffer_size);
-    int count = 0;
-    for (int x = 0; x<buffer_size; x++) {
-        if (pixels[x] == 0) {
-            count++;
-        }
+    // CoreDoCommand(M64CMD_READ_SCREEN, 1, pixels);
+    // // count = 0;
+    // // for (int x = 0; x<buffer_size; x++) {
+    // //     if (pixels[x] == 0) {
+    // //         count++;
+    // //     }
+    // // }
+    // // DebugMessage(M64MSG_INFO, "image zero afterwards: %i", count);
+    // // strcpy(image + image_size, stop);
+    // // DebugMessage(M64MSG_INFO, "image in between: %i\n", image);
+    // return buffer_size;
+    get_fb_file_path();
+    // DebugMessage(M64MSG_INFO, "now reading file.");
+    FILE * fb_file = fopen(file_path, "r");
+
+    struct stat st;
+    stat(file_path, &st);
+    int file_size = st.st_size;
+    // DebugMessage(M64MSG_INFO, "file read, bits in file: %i.", file_size);
+    unsigned char * buf = (unsigned char *) malloc(file_size);
+    // DebugMessage(M64MSG_INFO, "file opened.");
+    if(file_size != fread(buf, 1, file_size, fb_file)) {
+        DebugMessage(M64MSG_ERROR, "fb file could not be read.");
+        return -1;
     }
-    DebugMessage(M64MSG_INFO, "image zero: %i", count);
-    CoreDoCommand(M64CMD_READ_SCREEN, 1, pixels);
-    count = 0;
-    for (int x = 0; x<buffer_size; x++) {
-        if (pixels[x] == 0) {
-            count++;
+    int header_size = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+    int bits_per_pixel = (buf[44] << 24) | (buf[45] << 16) | (buf[46] << 8) | buf[47];
+    int bits_per_rgb = (buf[68] << 24) | (buf[69] << 16) | (buf[70] << 8) | buf[71];
+    int ncolors = (buf[76] << 24) | (buf[77] << 16) | (buf[78] << 8) | buf[79];
+       /* Close the file */
+    // DebugMessage(M64MSG_INFO, "file read, bits per pixel: %i per rgb: %i.", bits_per_pixel, bits_per_rgb);
+    int pixel_offset = header_size + ncolors * 12;
+
+    // DebugMessage(M64MSG_INFO, "offset: %i, header size: %i, nc: %i.", pixel_offset, header_size, ncolors * 12);
+    memcpy(pixels, buf + pixel_offset, buffer_size);
+    // int count = 0;
+    int pc = 0;
+    for (int x = pixel_offset; x<file_size && pc < buffer_size; x++) {
+        // DebugMessage(M64MSG_INFO, "x: %i buf value: %i, diff: %i", x, buf[x], (x - pixel_offset));
+        if ((x - pixel_offset - 3) % 4 == 0) {
+            // DebugMessage(M64MSG_INFO, "skip");
+
+            continue;
         }
+        pixels[pc++] = buf[x];
+        // sleep(1);
     }
-    DebugMessage(M64MSG_INFO, "image zero afterwards: %i", count);
+    // DebugMessage(M64MSG_INFO, "image zero: %i", count);
+    if( EOF == fclose(fb_file) ) {
+        free(pixels);
+        free(buf);
+        return -1;
+    }
+    free(buf);
     *image = pixels;
-    // strcpy(image + image_size, stop);
-    // DebugMessage(M64MSG_INFO, "image in between: %i\n", image);
+    // DebugMessage(M64MSG_INFO, "returning.");
     return buffer_size;
 }
 
@@ -188,17 +247,17 @@ int read_controller(int Control, int socket, int client_socket)
     // DebugMessage(M64MSG_INFO, "getting image.");
     // DebugMessage(M64MSG_INFO, "image before: %i", image);
     int buffer_size = get_emulator_image(&image);
-    int count = 0;
-    for (int x = 0; x<buffer_size; x++) {
-        if (image[x] == 0) {
-            count++;
-        }
-    }
-    DebugMessage(M64MSG_INFO, "image zero when send: %i", count);
+    // int count = 0;
+    // for (int x = 0; x<buffer_size; x++) {
+    //     if (image[x] == 0) {
+    //         count++;
+    //     }
+    // }
+    // DebugMessage(M64MSG_INFO, "image zero when send: %i", count);
 
     // for (int x = 0; x<5; x++) {
         // DebugMessage(M64MSG_INFO, "%i\n", image[x]);
-    // }
+    // // }
     // DebugMessage(M64MSG_INFO, "now sending stuff of size %i.", buffer_size);
 
     // if (send(client_socket, image, 1, 0) < 0)
@@ -207,6 +266,7 @@ int read_controller(int Control, int socket, int client_socket)
     {
         return -1;
     }
+    free(image);
     // DebugMessage(M64MSG_INFO, "done sending stuff.");
     int *values;
     values = parse_message(msg, rec_len);
