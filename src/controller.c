@@ -102,13 +102,14 @@ void clear_controller(int Control)
     controller[Control].buttons.Y_AXIS = 0;
 }
 
-#define CHUNK_SIZE 48
+#define CHUNK_SIZE 256
+int end_count = 0;
 
 int receive_basic(int socket, char *msg)
 {
     int size_recv, total_size = 0;
     char chunk[CHUNK_SIZE];
-    int end_count = 0;
+    end_count = 0;
     while (1)
     {
         memset(chunk, 0, CHUNK_SIZE); // clear the variable
@@ -130,7 +131,7 @@ int receive_basic(int socket, char *msg)
                 {
                     end_count ++;
                     if (end_count >= 2) {
-                        DebugMessage(M64MSG_INFO, "breaking cause found.");
+                        // DebugMessage(M64MSG_INFO, "breaking cause found.");
                         received_all = 1;
                         break;
 
@@ -157,10 +158,6 @@ int *parse_message(char *msg, int rec_len)
     for (; fst < rec_len; fst++)
         if (msg[fst] == '#')
             break;
-    // int scnd = fst + 1;
-    // for (; scnd < rec_len; scnd++)
-    //     if (msg[scnd] == '#')
-    //         break;
     
     for (int x = fst + 2; x < rec_len; x++)
     {
@@ -181,59 +178,33 @@ int *parse_message(char *msg, int rec_len)
 
 int get_emulator_image(unsigned char** image) {
     int image_size = screen_width * screen_height * 3;
-    // int image_size = 4;
-    // char * stop = "!#~~Stop it]";
     int buffer_size = image_size;
 
     unsigned char * pixels = (unsigned char *) malloc(buffer_size);
-    // CoreDoCommand(M64CMD_READ_SCREEN, 1, pixels);
-    // // count = 0;
-    // // for (int x = 0; x<buffer_size; x++) {
-    // //     if (pixels[x] == 0) {
-    // //         count++;
-    // //     }
-    // // }
-    // // DebugMessage(M64MSG_INFO, "image zero afterwards: %i", count);
-    // // strcpy(image + image_size, stop);
-    // // DebugMessage(M64MSG_INFO, "image in between: %i\n", image);
-    // return buffer_size;
     get_fb_file_path();
-    // DebugMessage(M64MSG_INFO, "now reading file.");
     FILE * fb_file = fopen(file_path, "r");
 
     struct stat st;
     stat(file_path, &st);
     int file_size = st.st_size;
-    // DebugMessage(M64MSG_INFO, "file read, bits in file: %i.", file_size);
     unsigned char * buf = (unsigned char *) malloc(file_size);
-    // DebugMessage(M64MSG_INFO, "file opened.");
     if(file_size != fread(buf, 1, file_size, fb_file)) {
         DebugMessage(M64MSG_ERROR, "fb file could not be read.");
         return -1;
     }
     int header_size = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-    int bits_per_pixel = (buf[44] << 24) | (buf[45] << 16) | (buf[46] << 8) | buf[47];
-    int bits_per_rgb = (buf[68] << 24) | (buf[69] << 16) | (buf[70] << 8) | buf[71];
+    // int bits_per_pixel = (buf[44] << 24) | (buf[45] << 16) | (buf[46] << 8) | buf[47];
+    // int bits_per_rgb = (buf[68] << 24) | (buf[69] << 16) | (buf[70] << 8) | buf[71];
     int ncolors = (buf[76] << 24) | (buf[77] << 16) | (buf[78] << 8) | buf[79];
-       /* Close the file */
-    // DebugMessage(M64MSG_INFO, "file read, bits per pixel: %i per rgb: %i.", bits_per_pixel, bits_per_rgb);
     int pixel_offset = header_size + ncolors * 12;
 
-    // DebugMessage(M64MSG_INFO, "offset: %i, header size: %i, nc: %i.", pixel_offset, header_size, ncolors * 12);
     memcpy(pixels, buf + pixel_offset, buffer_size);
-    // int count = 0;
     int pc = 0;
     for (int x = pixel_offset; x<file_size && pc < buffer_size; x++) {
-        // DebugMessage(M64MSG_INFO, "x: %i buf value: %i, diff: %i", x, buf[x], (x - pixel_offset));
-        if ((x - pixel_offset - 3) % 4 == 0) {
-            // DebugMessage(M64MSG_INFO, "skip");
-
+        if ((x - pixel_offset - 3) % 4 == 0)
             continue;
-        }
         pixels[pc++] = buf[x];
-        // sleep(1);
     }
-    // DebugMessage(M64MSG_INFO, "image zero: %i", count);
     if( EOF == fclose(fb_file) ) {
         free(pixels);
         free(buf);
@@ -241,7 +212,6 @@ int get_emulator_image(unsigned char** image) {
     }
     free(buf);
     *image = pixels;
-    // DebugMessage(M64MSG_INFO, "returning.");
     return buffer_size;
 }
 
@@ -264,56 +234,22 @@ int read_controller(int Control, int socket, int client_socket)
     get_screen_resolution();
     char msg[48];
     int rec_len = receive_basic(client_socket, msg);
-    int fst = 0, lst = rec_len-1;
-    // DebugMessage(M64MSG_INFO, "1 fst %i, lst: %i.", fst, lst);
-    // for (;fst < rec_len; fst++) {
-    //     if (msg[fst] == '#') break;
-    // }
-    // DebugMessage(M64MSG_INFO, "2 fst %i, lst: %i.", fst, lst);
-    // for (;lst >= 0; lst--) {
-    //     if (msg[lst] == '#') break;
-    // }
-    // DebugMessage(M64MSG_INFO, "3 fst %i, lst: %i.", fst, lst);
-    // if (rec_len > 10 && fst < lst) {
-    //     DebugMessage(M64MSG_INFO, "received size %i, msg: %s.", rec_len, msg);
+    if (rec_len > 10 && end_count >= 2) {
 
         unsigned char * image;
-        // DebugMessage(M64MSG_INFO, "getting image.");
-        // DebugMessage(M64MSG_INFO, "image before: %i", image);
         int buffer_size = get_emulator_image(&image);
-        // int count = 0;
-        // for (int x = 0; x<buffer_size; x++) {
-        //     if (image[x] == 0) {
-        //         count++;
-        //     }
-        // }
-        // DebugMessage(M64MSG_INFO, "image zero when send: %i", count);
-
-        // for (int x = 0; x<5; x++) {
-            // DebugMessage(M64MSG_INFO, "%i\n", image[x]);
-        // // }
-        // DebugMessage(M64MSG_INFO, "now sending stuff of size %i.", buffer_size);
-
-        // if (send(client_socket, image, 1, 0) < 0)
-
-            if (send(client_socket, image, buffer_size, 0) < 0)
-            {
-                return -1;
-            }
-        // free(image);
-        // DebugMessage(M64MSG_INFO, "done sending stuff.");
         int *values;
         parse_error = 0;
         values = parse_message(msg, rec_len);
-        // if (parse_error) {
-        //     DebugMessage(M64MSG_INFO, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa did not match received size %i, msg: %s.", rec_len, msg);
-        //     if (send(client_socket, "none", 4, 0) < 0)
-        //     {
-        //         DebugMessage(M64MSG_ERROR, "cannot send to client parse.");
-        //         return -1;
-        //     }
-        // }
-        // else {
+        if (parse_error) {
+            // request resend of data
+            if (send(client_socket, "none", 4, 0) < 0)
+            {
+                DebugMessage(M64MSG_ERROR, "cannot send to client parse.");
+                return -1;
+            }
+        }
+        else {
             controller[Control].buttons.X_AXIS = values[0];
             controller[Control].buttons.Y_AXIS = values[1];
             controller[Control].buttons.A_BUTTON = values[2];
@@ -332,17 +268,21 @@ int read_controller(int Control, int socket, int client_socket)
             controller[Control].buttons.START_BUTTON = values[15];
             frames_to_skip = values[16];
 
-    //     }
+            if (send(client_socket, image, buffer_size, 0) < 0)
+            {
+                return -1;
+            }
+        }
 
-    // }
-    // else {
-    //     DebugMessage(M64MSG_INFO, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ did not match received size %i, msg: %s.", rec_len, msg);
-    //     if (send(client_socket, "none", 4, 0) < 0)
-    //     {
-    //             DebugMessage(M64MSG_ERROR, "cannot send to client other.");
-    //         return -1;
-    //     }
-    // }
+    }
+    else {
+        // request resend of data
+        if (send(client_socket, "none", 4, 0) < 0)
+        {
+                DebugMessage(M64MSG_ERROR, "cannot send to client other.");
+            return -1;
+        }
+    }
 
     return client_socket;
 }
