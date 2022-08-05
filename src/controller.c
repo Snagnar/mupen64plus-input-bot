@@ -265,17 +265,17 @@ int read_controller(int Control, int socket, int client_socket)
     char msg[48];
     int rec_len = receive_basic(client_socket, msg);
     int fst = 0, lst = rec_len-1;
-    DebugMessage(M64MSG_INFO, "1 fst %i, lst: %i.", fst, lst);
-    for (;fst < rec_len; fst++) {
-        if (msg[fst] == '#') break;
-    }
-    DebugMessage(M64MSG_INFO, "2 fst %i, lst: %i.", fst, lst);
-    for (;lst >= 0; lst--) {
-        if (msg[lst] == '#') break;
-    }
-    DebugMessage(M64MSG_INFO, "3 fst %i, lst: %i.", fst, lst);
-    if (rec_len > 10 && fst < lst) {
-        DebugMessage(M64MSG_INFO, "received size %i, msg: %s.", rec_len, msg);
+    // DebugMessage(M64MSG_INFO, "1 fst %i, lst: %i.", fst, lst);
+    // for (;fst < rec_len; fst++) {
+    //     if (msg[fst] == '#') break;
+    // }
+    // DebugMessage(M64MSG_INFO, "2 fst %i, lst: %i.", fst, lst);
+    // for (;lst >= 0; lst--) {
+    //     if (msg[lst] == '#') break;
+    // }
+    // DebugMessage(M64MSG_INFO, "3 fst %i, lst: %i.", fst, lst);
+    // if (rec_len > 10 && fst < lst) {
+    //     DebugMessage(M64MSG_INFO, "received size %i, msg: %s.", rec_len, msg);
 
         unsigned char * image;
         // DebugMessage(M64MSG_INFO, "getting image.");
@@ -292,24 +292,28 @@ int read_controller(int Control, int socket, int client_socket)
         // for (int x = 0; x<5; x++) {
             // DebugMessage(M64MSG_INFO, "%i\n", image[x]);
         // // }
-        DebugMessage(M64MSG_INFO, "now sending stuff of size %i.", buffer_size);
+        // DebugMessage(M64MSG_INFO, "now sending stuff of size %i.", buffer_size);
 
         // if (send(client_socket, image, 1, 0) < 0)
 
+            if (send(client_socket, image, buffer_size, 0) < 0)
+            {
+                return -1;
+            }
         // free(image);
-        DebugMessage(M64MSG_INFO, "done sending stuff.");
+        // DebugMessage(M64MSG_INFO, "done sending stuff.");
         int *values;
         parse_error = 0;
         values = parse_message(msg, rec_len);
-        if (parse_error) {
-            DebugMessage(M64MSG_INFO, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa did not match received size %i, msg: %s.", rec_len, msg);
-            if (send(client_socket, "none", 4, 0) < 0)
-            {
-                DebugMessage(M64MSG_ERROR, "cannot send to client parse.");
-                return -1;
-            }
-        }
-        else {
+        // if (parse_error) {
+        //     DebugMessage(M64MSG_INFO, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa did not match received size %i, msg: %s.", rec_len, msg);
+        //     if (send(client_socket, "none", 4, 0) < 0)
+        //     {
+        //         DebugMessage(M64MSG_ERROR, "cannot send to client parse.");
+        //         return -1;
+        //     }
+        // }
+        // else {
             controller[Control].buttons.X_AXIS = values[0];
             controller[Control].buttons.Y_AXIS = values[1];
             controller[Control].buttons.A_BUTTON = values[2];
@@ -328,21 +332,17 @@ int read_controller(int Control, int socket, int client_socket)
             controller[Control].buttons.START_BUTTON = values[15];
             frames_to_skip = values[16];
 
-            if (send(client_socket, image, buffer_size, 0) < 0)
-            {
-                return -1;
-            }
-        }
+    //     }
 
-    }
-    else {
-        DebugMessage(M64MSG_INFO, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ did not match received size %i, msg: %s.", rec_len, msg);
-        if (send(client_socket, "none", 4, 0) < 0)
-        {
-                DebugMessage(M64MSG_ERROR, "cannot send to client other.");
-            return -1;
-        }
-    }
+    // }
+    // else {
+    //     DebugMessage(M64MSG_INFO, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ did not match received size %i, msg: %s.", rec_len, msg);
+    //     if (send(client_socket, "none", 4, 0) < 0)
+    //     {
+    //             DebugMessage(M64MSG_ERROR, "cannot send to client other.");
+    //         return -1;
+    //     }
+    // }
 
     return client_socket;
 }
