@@ -20,8 +20,17 @@
 #include "plugin.h"
 #include "controller.h"
 
+#define RECONNECT_INTERVAL 2000
+#define CHUNK_SIZE 256
+
 int screen_width = -1, screen_height = -1;
 char * file_path = NULL;
+
+static int frames_to_skip = 0;
+static int step_counter = 0;
+int end_count = 0;
+int parse_error = 0;
+
 
 void get_screen_resolution() {
     if (screen_width != -1 && screen_height != -1)
@@ -102,8 +111,6 @@ void clear_controller(int Control)
     controller[Control].buttons.Y_AXIS = 0;
 }
 
-#define CHUNK_SIZE 256
-int end_count = 0;
 
 int receive_basic(int socket, char *msg)
 {
@@ -147,7 +154,6 @@ int receive_basic(int socket, char *msg)
     return total_size;
 }
 
-int parse_error = 0;
 
 int *parse_message(char *msg, int rec_len)
 {
@@ -214,9 +220,6 @@ int get_emulator_image(unsigned char** image) {
     *image = pixels;
     return buffer_size;
 }
-
-static int frames_to_skip = 0;
-
 int read_controller(int Control, int socket, int client_socket)
 {
 
@@ -228,6 +231,7 @@ int read_controller(int Control, int socket, int client_socket)
     socklen_t namelen = sizeof(client);
     if (client_socket < 0 && (client_socket = accept(socket, (struct sockaddr *)&client, &namelen)) == -1)
     {
+        DebugMessage(M64MSG_INFO, "cannot accept client.");
         DebugMessage(M64MSG_ERROR, "cannot accept client.");
         return -1;
     }
@@ -245,6 +249,7 @@ int read_controller(int Control, int socket, int client_socket)
             // request resend of data
             if (send(client_socket, "none", 4, 0) < 0)
             {
+                DebugMessage(M64MSG_INFO, "cannot send to client parse.");
                 DebugMessage(M64MSG_ERROR, "cannot send to client parse.");
                 return -1;
             }
@@ -279,9 +284,18 @@ int read_controller(int Control, int socket, int client_socket)
         // request resend of data
         if (send(client_socket, "none", 4, 0) < 0)
         {
+                DebugMessage(M64MSG_INFO, "cannot send to client other.");
                 DebugMessage(M64MSG_ERROR, "cannot send to client other.");
             return -1;
         }
+    }
+
+    if ((step_counter++) % RECONNECT_INTERVAL == 0) {
+
+        DebugMessage(M64MSG_INFO, "RECONNECTIING.....");
+        close(client_socket);
+        client_socket = -1;
+        step_counter %= RECONNECT_INTERVAL;
     }
 
     return client_socket;
