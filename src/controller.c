@@ -20,7 +20,7 @@
 #include "plugin.h"
 #include "controller.h"
 
-#define RECONNECT_INTERVAL 2000
+#define RECONNECT_INTERVAL 10000
 #define CHUNK_SIZE 256
 
 int screen_width = -1, screen_height = -1;
@@ -140,7 +140,7 @@ int receive_basic(int socket, char *msg)
                     if (end_count >= 2) {
                         // DebugMessage(M64MSG_INFO, "breaking cause found.");
                         received_all = 1;
-                        break;
+                        // break;
 
                     }
                 }
@@ -162,8 +162,9 @@ int *parse_message(char *msg, int rec_len)
     int ni = 0, vi = 0;
     int fst = 0;
     for (; fst < rec_len; fst++)
-        if (msg[fst] == '#')
+        if (msg[fst] == '#' && msg[fst + 1] != '#')
             break;
+    // DebugMessage(M64MSG_INFO, "fst: %i.", fst);
     
     for (int x = fst + 2; x < rec_len; x++)
     {
@@ -176,7 +177,9 @@ int *parse_message(char *msg, int rec_len)
         }
         else
             number[ni++] = msg[x];
+        if (msg[x] == '#') break;
     }
+    // DebugMessage(M64MSG_INFO, "vi: %i.", vi);
     if (vi != 17) 
         parse_error = 1;        
     return values;
@@ -238,6 +241,7 @@ int read_controller(int Control, int socket, int client_socket)
     get_screen_resolution();
     char msg[48];
     int rec_len = receive_basic(client_socket, msg);
+    // DebugMessage(M64MSG_INFO, "received: %s.", msg);
     if (rec_len > 10 && end_count >= 2) {
 
         unsigned char * image;
@@ -246,6 +250,8 @@ int read_controller(int Control, int socket, int client_socket)
         parse_error = 0;
         values = parse_message(msg, rec_len);
         if (parse_error) {
+
+            DebugMessage(M64MSG_INFO, "Requesting resend because parse error! message: %s.", msg);
             // request resend of data
             if (send(client_socket, "none", 4, 0) < 0)
             {
@@ -255,6 +261,10 @@ int read_controller(int Control, int socket, int client_socket)
             }
         }
         else {
+            // for (int x = 0; x < 17; x++) {
+
+            //     DebugMessage(M64MSG_INFO, "value %i: %i", x, values[x]);
+            // }
             controller[Control].buttons.X_AXIS = values[0];
             controller[Control].buttons.Y_AXIS = values[1];
             controller[Control].buttons.A_BUTTON = values[2];
@@ -281,6 +291,7 @@ int read_controller(int Control, int socket, int client_socket)
 
     }
     else {
+        DebugMessage(M64MSG_INFO, "Requesting resend because message too short! message: %s.", msg);
         // request resend of data
         if (send(client_socket, "none", 4, 0) < 0)
         {
