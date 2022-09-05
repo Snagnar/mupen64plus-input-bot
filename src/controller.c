@@ -287,6 +287,7 @@ int read_controller(int Control, int socket, int client_socket)
             {
                 return -1;
             }
+            free(image);
         }
 
     }
